@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kayama Sanpai Hub | 産廃数量突合ツール</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=DM+Mono:wght@400;500&family=Bebas+Neue&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+<style>
+:root{
+  --navy:#1a2744;--navy-light:#243460;--navy-dark:#111c33;
+  --green:#10b981;--green-light:#34d399;--green-dark:#059669;
+  --red:#ef4444;--amber:#f59e0b;
+  --gray-bg:#f1f5f9;--gray-light:#e8edf4;--gray-mid:#94a3b8;
+  --white:#ffffff;--radius:12px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Noto Sans JP',sans-serif;background:var(--gray-bg);color:var(--navy);min-height:100vh;}
+
+/* LOGIN */
+#login-screen{position:fixed;inset:0;background:var(--navy-dark);display:flex;align-items:center;justify-content:center;z-index:1000;}
+.login-card{background:var(--navy-light);border-radius:20px;padding:48px;width:380px;text-align:center;box-shadow:0 24px 60px rgba(0,0,0,0.4);}
+.login-icon{font-size:48px;margin-bottom:8px;}
+.login-title{font-family:'Bebas Neue',sans-serif;font-size:30px;letter-spacing:0.1em;color:var(--white);margin-bottom:4px;}
+.login-title span{color:var(--green-light);}
+.login-sub{font-size:12px;color:var(--gray-mid);margin-bottom:32px;}
+.login-input{width:100%;padding:12px 16px;border-radius:10px;border:1.5px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.06);color:var(--white);font-size:15px;outline:none;transition:.2s;}
+.login-input:focus{border-color:var(--green);}
+.login-btn{margin-top:16px;width:100%;padding:13px;border-radius:10px;border:none;background:var(--green);color:var(--white);font-family:'Noto Sans JP',sans-serif;font-size:15px;font-weight:700;cursor:pointer;transition:.2s;}
+.login-btn:hover{background:var(--green-dark);}
+.login-err{color:#f87171;font-size:12px;margin-top:8px;min-height:18px;}
+
+/* SPLASH */
+#splash{position:fixed;inset:0;background:var(--navy-dark);display:flex;align-items:center;justify-content:center;z-index:999;pointer-events:none;}
+#splash.hidden{display:none;}
+.splash-txt{font-family:'Bebas Neue',sans-serif;font-size:72px;letter-spacing:0.15em;color:var(--white);opacity:0;transform:scale(0.1);animation:sZoom 1s cubic-bezier(0.16,1,0.3,1) 0.1s forwards,sFade 0.8s ease 1.4s forwards;}
+.splash-txt span{color:var(--green-light);}
+@keyframes sZoom{from{opacity:0;transform:scale(0.1);}to{opacity:1;transform:scale(1);}}
+@keyframes sFade{from{opacity:1;}to{opacity:0;}}
+
+/* HEADER */
+header{background:var(--navy);height:56px;display:flex;align-items:center;justify-content:space-between;padding:0 32px;position:sticky;top:0;z-index:100;box-shadow:0 2px 20px rgba(0,0,0,0.25);}
+.logo{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:0.12em;color:var(--white);}
+.logo span{color:var(--green-light);}
+.logo-sub{font-size:11px;color:var(--gray-mid);margin-left:10px;border-left:1px solid rgba(255,255,255,0.15);padding-left:10px;font-family:'Noto Sans JP',sans-serif;letter-spacing:normal;font-weight:300;}
+.header-right{display:flex;align-items:center;gap:16px;}
+.hdate{font-family:'DM Mono',monospace;font-size:12px;color:var(--gray-mid);}
+.logout-btn{font-size:12px;color:var(--gray-mid);cursor:pointer;background:none;border:1px solid rgba(255,255,255,0.15);padding:5px 12px;border-radius:6px;transition:.2s;}
+.logout-btn:hover{border-color:#f87171;color:#f87171;}
+
+/* MAIN */
+main{max-width:1200px;margin:0 auto;padding:28px 24px;}
+
+/* TABS */
+.tabs{display:flex;gap:8px;margin-bottom:24px;}
+.tab{padding:10px 24px;border-radius:8px;border:none;font-family:'Noto Sans JP',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:.2s;background:var(--white);color:var(--gray-mid);}
+.tab.active{background:var(--navy);color:var(--white);}
+.tab-content{display:none;}
+.tab-content.active{display:block;}
+
+/* CARDS */
+.card{background:var(--white);border-radius:var(--radius);box-shadow:0 4px 16px rgba(0,0,0,0.06);overflow:hidden;margin-bottom:20px;}
+.card-header{padding:16px 24px;border-bottom:1px solid var(--gray-light);display:flex;align-items:center;justify-content:space-between;}
+.card-header h3{font-size:14px;font-weight:700;}
+.card-body{padding:20px 24px;}
+
+/* MANIFEST DROP */
+.drop-zone{border:2px dashed var(--gray-light);border-radius:10px;padding:32px;text-align:center;cursor:pointer;transition:.25s;background:var(--gray-bg);}
+.drop-zone:hover,.drop-zone.over{border-color:var(--green);background:#f0fdf8;}
+.drop-zone.has-file{border-style:solid;border-color:var(--green);background:#f0fdf8;}
+.drop-icon{font-size:36px;margin-bottom:8px;opacity:0.4;}
+.drop-title{font-size:14px;font-weight:700;color:var(--navy);}
+.drop-sub{font-size:12px;color:var(--gray-mid);margin-top:4px;}
+.file-badge{display:inline-block;background:var(--green);color:var(--white);font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;margin-top:8px;}
+input[type=file]{display:none;}
+
+/* KEIRYO INPUT TABLE */
+.step-label{font-size:11px;font-weight:700;letter-spacing:0.15em;color:var(--gray-mid);text-transform:uppercase;margin-bottom:10px;}
+
+.k-table{width:100%;border-collapse:collapse;}
+.k-table th{background:var(--navy);color:var(--white);font-size:11px;font-weight:700;padding:10px 12px;text-align:center;letter-spacing:0.05em;}
+.k-table th:first-child{border-radius:8px 0 0 0;}
+.k-table th:last-child{border-radius:0 8px 0 0;}
+.k-table td{padding:6px 6px;border-bottom:1px solid var(--gray-light);text-align:center;vertical-align:middle;}
+.k-table tr:hover td{background:#f8fafc;}
+.k-table tr.matched td{background:#f0fdf8;}
+.k-table tr.unmatched td{background:#fff1f2;}
+
+.k-num{font-family:'DM Mono',monospace;font-size:13px;color:var(--navy);font-weight:500;}
+.row-no{font-family:'DM Mono',monospace;font-size:12px;color:var(--gray-mid);}
+
+/* INPUT FIELDS */
+.net-input{
+  width:90px;padding:7px 8px;border:1.5px solid var(--gray-light);
+  border-radius:6px;font-family:'DM Mono',monospace;font-size:14px;
+  font-weight:700;text-align:right;outline:none;transition:.15s;
+  color:var(--navy);background:var(--white);
+}
+.net-input:focus{border-color:var(--green);background:#f0fdf8;}
+.net-input.ok{border-color:var(--green);background:#f0fdf8;color:#15803d;}
+.net-input.ng{border-color:var(--red);background:#fff1f2;color:#b91c1c;}
+
+/* JUDGE BADGE */
+.jbadge{display:inline-flex;align-items:center;gap:4px;font-size:13px;font-weight:700;padding:4px 12px;border-radius:20px;white-space:nowrap;}
+.jbadge.ok{background:#dcfce7;color:#15803d;}
+.jbadge.ng{background:#fee2e2;color:#b91c1c;}
+.jbadge.wait{background:var(--gray-light);color:var(--gray-mid);}
+
+/* SUMMARY */
+.sum-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;}
+.sum-card{background:var(--white);border-radius:10px;padding:16px 20px;box-shadow:0 2px 8px rgba(0,0,0,0.05);}
+.sum-card .sl{font-size:11px;font-weight:700;color:var(--gray-mid);letter-spacing:0.1em;text-transform:uppercase;}
+.sum-card .sn{font-family:'DM Mono',monospace;font-size:28px;font-weight:700;margin-top:2px;}
+.sum-card.ok .sn{color:var(--green);}
+.sum-card.ng .sn{color:var(--red);}
+.sum-card.wait .sn{color:var(--amber);}
+.sum-card.total .sn{color:var(--navy);}
+
+/* BUTTONS */
+.btn-primary{padding:11px 28px;background:var(--navy);color:var(--white);border:none;border-radius:8px;font-family:'Noto Sans JP',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:.2s;}
+.btn-primary:hover{background:var(--navy-light);}
+.btn-primary:disabled{opacity:0.4;cursor:not-allowed;}
+.btn-green{padding:11px 28px;background:var(--green);color:var(--white);border:none;border-radius:8px;font-family:'Noto Sans JP',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:.2s;}
+.btn-green:hover{background:var(--green-dark);}
+.btn-outline{padding:10px 20px;background:none;color:var(--gray-mid);border:1.5px solid var(--gray-light);border-radius:8px;font-family:'Noto Sans JP',sans-serif;font-size:12px;cursor:pointer;transition:.2s;}
+.btn-outline:hover{border-color:var(--gray-mid);}
+
+.action-bar{display:flex;align-items:center;gap:12px;margin-top:16px;flex-wrap:wrap;}
+.pair-note{font-size:12px;color:var(--gray-mid);}
+
+/* ADD ROW */
+.add-row-btn{width:100%;padding:10px;border:2px dashed var(--gray-light);border-radius:8px;background:none;color:var(--gray-mid);font-family:'Noto Sans JP',sans-serif;font-size:13px;cursor:pointer;transition:.2s;margin-top:8px;}
+.add-row-btn:hover{border-color:var(--green);color:var(--green);}
+
+/* TOAST */
+.toast{position:fixed;bottom:28px;right:28px;background:var(--navy);color:var(--white);padding:12px 20px;border-radius:10px;font-size:13px;font-weight:500;opacity:0;pointer-events:none;transform:translateY(10px);transition:.3s;z-index:500;}
+.toast.show{opacity:1;transform:translateY(0);}
+
+/* HELP TIP */
+.tip{background:#eff6ff;border-left:3px solid #3b82f6;border-radius:0 8px 8px 0;padding:10px 14px;font-size:12px;color:#1e40af;margin-bottom:16px;}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-icon">♻️</div>
+    <div class="login-title">Kayama <span>Sanpai</span> Hub</div>
+    <div class="login-sub">産業廃棄物 数量突合ツール</div>
+    <input class="login-input" type="password" id="pw" placeholder="パスワードを入力" autocomplete="off">
+    <button class="login-btn" onclick="doLogin()">ログイン</button>
+    <div class="login-err" id="login-err"></div>
+  </div>
+</div>
+
+<!-- SPLASH -->
+<div id="splash" class="hidden">
+  <div class="splash-txt">SANPAI <span>HUB</span></div>
+</div>
+
+<!-- HEADER -->
+<header>
+  <div style="display:flex;align-items:center;">
+    <div class="logo">Kayama <span>Sanpai</span> Hub<span class="logo-sub">産廃数量突合ツール</span></div>
+  </div>
+  <div class="header-right">
+    <div class="hdate" id="hdate"></div>
+    <button class="logout-btn" onclick="doLogout()">ログアウト</button>
+  </div>
+</header>
+
+<!-- MAIN -->
+<main>
+
+  <!-- TABS -->
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('tab-input')">📝 突合入力</button>
+    <button class="tab" onclick="switchTab('tab-result')">📊 結果一覧</button>
+  </div>
+
+  <!-- TAB: 入力 -->
+  <div class="tab-content active" id="tab-input">
+
+    <!-- マニフェスト読込 -->
+    <div class="card">
+      <div class="card-header">
+        <h3>📋 STEP 1｜マニフェスト（JWNET PDF）をドロップ</h3>
+        <span id="m-status" style="font-size:12px;color:var(--gray-mid);">未読込</span>
+      </div>
+      <div class="card-body">
+        <div class="tip">JWNETからダウンロードした「受渡確認票PDF」を1日分まとめてドロップしてください。受入量が自動で読み込まれます。</div>
+        <div class="drop-zone" id="m-drop"
+          ondragover="onDragOver(event,'m-drop')"
+          ondragleave="onDragLeave('m-drop')"
+          ondrop="onDrop(event)"
+          onclick="document.getElementById('m-file').click()">
+          <input type="file" id="m-file" accept=".pdf" onchange="onFileChange(event)">
+          <div class="drop-icon">📋</div>
+          <div class="drop-title">マニフェストPDFをここにドロップ</div>
+          <div class="drop-sub">またはクリックして選択</div>
+          <div id="m-badge"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 計量伝票入力 -->
+    <div class="card">
+      <div class="card-header">
+        <h3>📄 STEP 2｜計量伝票の「正味」を入力</h3>
+        <span style="font-size:12px;color:var(--gray-mid);">計量伝票を見ながら正味(kg)を入力してください</span>
+      </div>
+      <div class="card-body">
+        <div class="tip">💡 <b>Enterキー</b>で次の行に移動できます。テンキーで素早く入力できます。</div>
+
+        <table class="k-table" id="k-table">
+          <thead>
+            <tr>
+              <th style="width:48px;">No</th>
+              <th style="width:110px;">正味(kg)<br><span style="font-weight:400;font-size:10px;">計量伝票</span></th>
+              <th style="width:120px;">受入量(kg)<br><span style="font-weight:400;font-size:10px;">マニフェスト</span></th>
+              <th style="width:90px;">判定</th>
+              <th>マニフェスト番号</th>
+              <th style="width:110px;">引渡し日</th>
+              <th style="width:120px;">車両番号</th>
+            </tr>
+          </thead>
+          <tbody id="k-tbody"></tbody>
+        </table>
+        <button class="add-row-btn" onclick="addRow()">＋ 行を追加する</button>
+
+        <div class="action-bar">
+          <button class="btn-green" onclick="goResult()">📊 結果を見る</button>
+          <button class="btn-outline" onclick="clearAll()">クリア</button>
+          <span class="pair-note" id="pair-note"></span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- TAB: 結果 -->
+  <div class="tab-content" id="tab-result">
+    <div class="sum-grid">
+      <div class="sum-card total"><div class="sl">合計</div><div class="sn" id="s-total">0</div></div>
+      <div class="sum-card ok"><div class="sl">✅ 一致</div><div class="sn" id="s-ok">0</div></div>
+      <div class="sum-card ng"><div class="sl">❌ 不一致</div><div class="sn" id="s-ng">0</div></div>
+      <div class="sum-card wait"><div class="sl">⚠️ 未入力</div><div class="sn" id="s-wait">0</div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <h3>突合結果一覧</h3>
+        <button class="btn-outline" onclick="exportCSV()">📥 CSVダウンロード</button>
+      </div>
+      <div class="card-body" style="padding:0;">
+        <table class="k-table" style="border-radius:0;">
+          <thead>
+            <tr>
+              <th style="width:48px;">No</th>
+              <th>正味(kg)</th>
+              <th>受入量(kg)</th>
+              <th>差分</th>
+              <th>判定</th>
+              <th>M番号</th>
+              <th>引渡し日</th>
+              <th>車両番号</th>
+            </tr>
+          </thead>
+          <tbody id="r-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="action-bar">
+      <button class="btn-primary" onclick="switchTab('tab-input')">← 入力に戻る</button>
+      <button class="btn-green" onclick="exportCSV()">📥 CSVダウンロード</button>
+    </div>
+  </div>
+
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ─── AUTH ───────────────────────────────────────────
+const PW = 'kayama-sanpai';
+function doLogin(){
+  if(document.getElementById('pw').value === PW){
+    localStorage.setItem('sanpai_v2','1');
+    document.getElementById('login-screen').style.display='none';
+    showSplash();
+  } else {
+    document.getElementById('login-err').textContent='パスワードが違います';
+    document.getElementById('pw').value='';
+  }
+}
+document.getElementById('pw').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+function doLogout(){ localStorage.removeItem('sanpai_v2'); location.reload(); }
+function showSplash(){
+  const s=document.getElementById('splash');
+  s.classList.remove('hidden');
+  setTimeout(()=>s.classList.add('hidden'),2500);
+}
+window.addEventListener('DOMContentLoaded',()=>{
+  if(localStorage.getItem('sanpai_v2')==='1')
+    document.getElementById('login-screen').style.display='none';
+  updateDate();
+  initRows(5); // 最初から5行表示
+});
+function updateDate(){
+  const d=new Date(), days=['日','月','火','水','木','金','土'];
+  document.getElementById('hdate').textContent=
+    `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}（${days[d.getDay()]}）`;
+}
+
+// ─── TABS ────────────────────────────────────────────
+function switchTab(id){
+  document.querySelectorAll('.tab-content').forEach(e=>e.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(e=>e.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  const idx = id==='tab-input'?0:1;
+  document.querySelectorAll('.tab')[idx].classList.add('active');
+  if(id==='tab-result') renderResult();
+}
+
+// ─── MANIFEST PDF 読込（PDF.jsでテキスト抽出）────────
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+  'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+
+let manifestData = []; // [{no, date, car, receiveKg}, ...]
+let rowCount = 0;
+
+function onDragOver(e,id){ e.preventDefault(); document.getElementById(id).classList.add('over'); }
+function onDragLeave(id){ document.getElementById(id).classList.remove('over'); }
+function onDrop(e){
+  e.preventDefault();
+  onDragLeave('m-drop');
+  const file = e.dataTransfer.files[0];
+  if(file) loadManifest(file);
+}
+function onFileChange(e){
+  const file = e.target.files[0];
+  if(file) loadManifest(file);
+}
+
+async function loadManifest(file){
+  document.getElementById('m-status').textContent='読み込み中…';
+  console.log('loadManifest開始:', file.name, file.size);
+  try {
+    const ab = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({data: ab}).promise;
+    manifestData = [];
+    console.log('PDFページ数:', pdf.numPages);
+    for(let i=1; i<=pdf.numPages; i++){
+      const page = await pdf.getPage(i);
+      const content = await page.getTextContent();
+      const items = content.items.map(x=>x.str.trim()).filter(x=>x);
+      const text = items.join('\n');
+      console.log('P'+i+' items数:', items.length, '先頭3件:', items.slice(0,3));
+      const rec = parseManifest(text, items);
+      console.log('P'+i+' 解析結果:', rec);
+      if(rec) manifestData.push(rec);
+    }
+    // バッジ更新
+    const badge = document.getElementById('m-badge');
+    badge.innerHTML = `<span class="file-badge">${manifestData.length}件 読込完了</span>`;
+    document.getElementById('m-drop').classList.add('has-file');
+    document.getElementById('m-status').textContent = `${manifestData.length}件読込済`;
+
+    // 行数をマニフェスト件数に合わせる
+    syncRows(manifestData.length);
+    updatePairNote();
+    showToast(`✅ マニフェスト ${manifestData.length}件 読み込みました`);
+  } catch(err) {
+    document.getElementById('m-status').textContent='読込エラー';
+    showToast('❌ PDFの読み込みに失敗しました: '+err.message);
+  }
+}
+
+function parseManifest(text, items){
+  const rec = {};
+
+  // マニフェスト番号: "マニフェスト番号 16507511792" が1アイテムの場合と分かれる場合の両対応
+  for(let i=0;i<items.length;i++){
+    const m = items[i].match(/マニフェスト番号[\s　]+(\d{10,})/);
+    if(m){ rec.no=m[1]; break; }
+    if(items[i]==='マニフェスト番号'){
+      for(let j=i+1;j<Math.min(i+5,items.length);j++){
+        if(/^\d{10,}$/.test(items[j])){ rec.no=items[j]; break; }
+      }
+      break;
+    }
+  }
+
+  // 引渡し日: "引渡し日"の次の "YYYY/MM/DD"
+  for(let i=0;i<items.length;i++){
+    if(items[i].includes('引渡し日')){
+      for(let j=i+1;j<Math.min(i+5,items.length);j++){
+        const m=items[j].match(/(\d{4}\/\d{2}\/\d{2})/);
+        if(m){ rec.date=m[1]; break; }
+      }
+      break;
+    }
+  }
+
+  // 車両番号（収集運搬）の後の車番
+  for(let i=0;i<items.length;i++){
+    if(items[i].includes('車両番号（収集運搬）')){
+      for(let j=i+1;j<Math.min(i+10,items.length);j++){
+        if(/\d+[あ-ん]\d+/.test(items[j])){ rec.car=items[j]; break; }
+      }
+      break;
+    }
+  }
+
+  // 受入量: "受入量"の後の "X.XXX ｔ" または "X.XXX t"
+  for(let i=0;i<items.length;i++){
+    if(items[i]==='受入量'){
+      for(let j=i+1;j<Math.min(i+8,items.length);j++){
+        const m=items[j].match(/^([\d.]+)\s*[tｔ]/);
+        if(m){ rec.receiveT=parseFloat(m[1]); rec.receiveKg=Math.round(rec.receiveT*1000); break; }
+      }
+      break;
+    }
+  }
+
+  return (rec.no||rec.receiveKg) ? rec : null;
+}
+
+// ─── 入力テーブル ────────────────────────────────────
+function initRows(n){
+  for(let i=0;i<n;i++) addRow();
+}
+
+function syncRows(n){
+  // 現在の行数をnに合わせる
+  const tbody = document.getElementById('k-tbody');
+  const cur = tbody.querySelectorAll('tr').length;
+  if(cur < n){
+    for(let i=cur;i<n;i++) addRow();
+  }
+  // マニフェストデータを各行にセット
+  const rows = tbody.querySelectorAll('tr');
+  rows.forEach((tr,i)=>{
+    const m = manifestData[i];
+    const mNo   = tr.querySelector('.m-no');
+    const mDate = tr.querySelector('.m-date');
+    const mCar  = tr.querySelector('.m-car');
+    const mRecv = tr.querySelector('.m-recv');
+    if(m){
+      if(mNo)   mNo.textContent   = m.no   || '－';
+      if(mDate) mDate.textContent = m.date || '－';
+      if(mCar)  mCar.textContent  = m.car  || '－';
+      if(mRecv){ mRecv.textContent = m.receiveKg ? m.receiveKg.toLocaleString() : '－'; }
+    }
+    updateRowJudge(tr, i);
+  });
+}
+
+function addRow(){
+  rowCount++;
+  const tbody = document.getElementById('k-tbody');
+  const i = rowCount - 1;
+  const m = manifestData[i] || {};
+  const tr = document.createElement('tr');
+  tr.dataset.idx = i;
+  tr.innerHTML = `
+    <td><span class="row-no">${rowCount}</span></td>
+    <td>
+      <input class="net-input" type="number" min="0" step="1"
+        placeholder="例: 7420"
+        oninput="onNetInput(this)"
+        onkeydown="onNetKeydown(event,this)"
+        data-row="${i}">
+    </td>
+    <td><span class="k-num m-recv">${m.receiveKg ? m.receiveKg.toLocaleString() : '－'}</span></td>
+    <td><span class="jbadge wait" id="judge-${i}">－</span></td>
+    <td><span class="k-num m-no" style="font-size:12px;">${m.no||'－'}</span></td>
+    <td><span class="k-num m-date" style="font-size:12px;">${m.date||'－'}</span></td>
+    <td><span class="k-num m-car" style="font-size:12px;">${m.car||'－'}</span></td>
+  `;
+  tbody.appendChild(tr);
+  updatePairNote();
+}
+
+function onNetInput(input){
+  const idx = parseInt(input.dataset.row);
+  const net = parseInt(input.value);
+  const m = manifestData[idx];
+  const recv = m ? m.receiveKg : null;
+  const badge = document.getElementById('judge-'+idx);
+  const tr = input.closest('tr');
+
+  if(!input.value || isNaN(net)){
+    input.className='net-input';
+    if(badge){ badge.className='jbadge wait'; badge.textContent='－'; }
+    tr.classList.remove('matched','unmatched');
+    return;
+  }
+  if(recv===null){
+    input.className='net-input';
+    if(badge){ badge.className='jbadge wait'; badge.textContent='M未読込'; }
+    return;
+  }
+  if(net===recv){
+    input.className='net-input ok';
+    if(badge){ badge.className='jbadge ok'; badge.textContent='〇 一致'; }
+    tr.classList.add('matched'); tr.classList.remove('unmatched');
+  } else {
+    input.className='net-input ng';
+    if(badge){ badge.className='jbadge ng'; badge.textContent='✕ 不一致'; }
+    tr.classList.add('unmatched'); tr.classList.remove('matched');
+  }
+  updateSummaryLive();
+}
+
+function onNetKeydown(e, input){
+  if(e.key==='Enter'){
+    e.preventDefault();
+    // 次の入力欄にフォーカス
+    const allInputs = [...document.querySelectorAll('.net-input')];
+    const idx = allInputs.indexOf(input);
+    if(idx < allInputs.length-1){
+      allInputs[idx+1].focus();
+      allInputs[idx+1].select();
+    } else {
+      // 最後の行なら行を追加してフォーカス
+      addRow();
+      setTimeout(()=>{
+        const newInputs = document.querySelectorAll('.net-input');
+        newInputs[newInputs.length-1].focus();
+      },50);
+    }
+  }
+}
+
+function updateRowJudge(tr, i){
+  const input = tr.querySelector('.net-input');
+  if(input) onNetInput(input);
+}
+
+function updatePairNote(){
+  const rows = document.querySelectorAll('#k-tbody tr').length;
+  const mLen = manifestData.length;
+  const note = document.getElementById('pair-note');
+  if(mLen>0){
+    note.textContent = `マニフェスト${mLen}件読込済 | 入力行${rows}行`;
+  } else {
+    note.textContent = `入力行${rows}行（マニフェスト未読込）`;
+  }
+}
+
+function updateSummaryLive(){
+  // ライブでサマリー更新
+  const inputs = document.querySelectorAll('.net-input');
+  let ok=0, ng=0, wait=0;
+  inputs.forEach((inp,i)=>{
+    const net=parseInt(inp.value);
+    const m=manifestData[i];
+    if(!inp.value||isNaN(net)){ wait++; return; }
+    if(!m){ wait++; return; }
+    if(net===m.receiveKg) ok++; else ng++;
+  });
+  document.getElementById('s-total').textContent = ok+ng+wait;
+  document.getElementById('s-ok').textContent = ok;
+  document.getElementById('s-ng').textContent = ng;
+  document.getElementById('s-wait').textContent = wait;
+}
+
+function clearAll(){
+  if(!confirm('入力内容をすべてクリアしますか？')) return;
+  manifestData=[];
+  rowCount=0;
+  document.getElementById('k-tbody').innerHTML='';
+  document.getElementById('m-badge').innerHTML='';
+  document.getElementById('m-drop').classList.remove('has-file');
+  document.getElementById('m-status').textContent='未読込';
+  document.getElementById('m-file').value='';
+  initRows(5);
+  updatePairNote();
+  showToast('クリアしました');
+}
+
+// ─── 結果 ───────────────────────────────────────────
+function goResult(){
+  switchTab('tab-result');
+}
+
+function renderResult(){
+  const inputs = document.querySelectorAll('.net-input');
+  const tbody = document.getElementById('r-tbody');
+  tbody.innerHTML='';
+  let ok=0,ng=0,wait=0;
+
+  inputs.forEach((inp,i)=>{
+    const net=parseInt(inp.value);
+    const m=manifestData[i]||{};
+    const recv=m.receiveKg||null;
+    let judge='wait', diff='－';
+
+    if(!inp.value||isNaN(net)){ wait++; }
+    else if(recv===null){ wait++; }
+    else if(net===recv){ judge='ok'; ok++; diff=0; }
+    else { judge='ng'; ng++; diff=net-recv; }
+
+    const badgeTxt = judge==='ok'?'〇 一致':judge==='ng'?'✕ 不一致':'未入力';
+    const diffTxt = typeof diff==='number'
+      ? `<span style="font-family:'DM Mono',monospace;font-size:12px;color:${diff===0?'var(--green)':'var(--red)'};">${diff>=0?'+':''}${diff}</span>`
+      : '－';
+
+    tbody.innerHTML += `<tr class="${judge==='ok'?'matched':judge==='ng'?'unmatched':''}">
+      <td><span class="row-no">${i+1}</span></td>
+      <td><span class="k-num">${inp.value?parseInt(inp.value).toLocaleString():'－'}</span></td>
+      <td><span class="k-num">${recv?recv.toLocaleString():'－'}</span></td>
+      <td>${diffTxt}</td>
+      <td><span class="jbadge ${judge}">${badgeTxt}</span></td>
+      <td><span class="k-num" style="font-size:12px;">${m.no||'－'}</span></td>
+      <td><span class="k-num" style="font-size:12px;">${m.date||'－'}</span></td>
+      <td><span class="k-num" style="font-size:12px;">${m.car||'－'}</span></td>
+    </tr>`;
+  });
+
+  document.getElementById('s-total').textContent=ok+ng+wait;
+  document.getElementById('s-ok').textContent=ok;
+  document.getElementById('s-ng').textContent=ng;
+  document.getElementById('s-wait').textContent=wait;
+}
+
+// ─── CSV出力 ─────────────────────────────────────────
+function exportCSV(){
+  const inputs = document.querySelectorAll('.net-input');
+  const rows=[['No','正味(kg)','受入量(kg)','差分(kg)','判定','M番号','引渡し日','車両番号']];
+  inputs.forEach((inp,i)=>{
+    const net=parseInt(inp.value);
+    const m=manifestData[i]||{};
+    const recv=m.receiveKg||'';
+    let judge='未入力',diff='';
+    if(!isNaN(net)&&recv!==''){
+      diff=net-recv;
+      judge=net===recv?'〇 一致':'✕ 不一致';
+    }
+    rows.push([i+1,isNaN(net)?'':net,recv,isNaN(diff)?'':diff,judge,m.no||'',m.date||'',m.car||'']);
+  });
+  const csv=rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  const date=manifestData[0]?.date?.replace(/\//g,'')||new Date().toISOString().slice(0,10).replace(/-/g,'');
+  a.download=`突合結果_${date}.csv`;
+  a.click();
+  showToast('📥 CSVをダウンロードしました');
+}
+
+// ─── TOAST ──────────────────────────────────────────
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),3000);
+}
+</script>
+</body>
+</html>
